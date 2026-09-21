@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trace-tf-target"
+version = "0.1.0"
+description = "Transcription-factor-aware Regulatory Architecture for Candidate-Edge prioritization"
+readme = "README.md"
+requires-python = ">=3.10,<3.12"
+license = {file = "LICENSE"}
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+  "numpy>=1.26,<2",
+  "pandas>=2.0,<3",
+  "scipy>=1.15,<2",
+  "scikit-learn>=1.6,<2",
+  "h5py>=3.12,<4",
+  "tables>=3.10,<4",
+  "scanpy>=1.10,<2",
+  "muon>=0.1.7,<0.2",
+  "anndata>=0.11,<0.12",
+  "pyreadr>=0.5,<0.6",
+]
+
+[project.urls]
+Repository = "https://github.com/sesh081421/TRACE"
+Issues = "https://github.com/sesh081421/TRACE/issues"
+Data = "https://drive.google.com/drive/folders/1WmWXiD0VyNyD_Bd8IkFWRRWi5N1LAsDp?usp=drive_link"
+
+[project.scripts]
+trace-train = "trace_tf_target.cli:main"
+trace-sweep = "trace_tf_target.sweep:main"
+trace-summarize = "trace_tf_target.summarize_seed_sweep:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
