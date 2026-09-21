@@ -65,6 +65,11 @@ def main() -> None:
             raise SystemExit(f"Unknown dataset(s): {sorted(missing)}")
 
     env = os.environ.copy()
+    # A script-local sys.path change is not inherited by the child interpreter.
+    package_root = str(Path(__file__).resolve().parents[1])
+    env["PYTHONPATH"] = os.pathsep.join(
+        part for part in [package_root, env.get("PYTHONPATH", "")] if part
+    )
     if args.cuda_visible_devices is not None:
         env["CUDA_VISIBLE_DEVICES"] = args.cuda_visible_devices
 

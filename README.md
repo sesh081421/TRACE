@@ -58,6 +58,12 @@ python -m pip install -r requirements.txt
 python -m pip install -e . --no-deps
 ```
 
+The `scripts/` entry points and shell examples can also run directly from an
+extracted checkout without the editable-install step; they locate `src/`
+automatically. The dependencies above must still be installed. The editable
+installation is needed for the `trace-train`, `trace-sweep` and `trace-summarize`
+console commands.
+
 The PyG extension wheels in `requirements.txt` target CUDA 12.1. For a
 different CUDA version or CPU-only execution, install matching PyTorch, PyG,
 `torch-scatter`, and `torch-sparse` builds before installing TRACE.
@@ -120,6 +126,14 @@ run the existing quick example from the repository root:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 bash examples/run_quick_check.sh
+```
+
+The shell examples resolve their data and output paths from the repository
+root. They use the active environment's `python`; set `PYTHON_BIN` to select
+another interpreter. To check the command without starting training:
+
+```bash
+bash examples/run_quick_check.sh --help
 ```
 
 This runs three training epochs on BM. It checks execution, not final paper
