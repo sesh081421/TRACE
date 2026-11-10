@@ -1,0 +1,13 @@
+--attention_mode topology_only
+--encoder_type gat
+--decoder bilinear
+--loss_type legacy_focal
+--selection_metric AUPRC
+--train_neg_sampling global
+--neg_ratio 1
+--lr 0.00013315
+--weight_decay 0.0
+--dropout 0.1
+--output_dim 64
+--topk 50
+--topo_thr 0.15

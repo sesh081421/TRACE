@@ -1,0 +1,59 @@
+# Training and evaluation
+
+## Running the training tools
+
+Start with the [single-run validation example](../README.md#train-trace).
+For a full training run, retain the metrics JSON, checkpoint, and generated
+dataset artifacts together. In this CLI, `--eval_neg_ratio` sets the
+background-to-positive ratio for both sampled
+validation and test candidates; `--neg_ratio` controls dynamic training
+sampling. The training example builds neighborhoods from training positives
+and excludes annotated positives when sampling training backgrounds.
+`--selection_metric AUPRC` selects the checkpoint by pooled validation AP.
+
+Use `trace_tf_target/run_seed_sweep.py --help` to configure dataset and seed
+lists. The sweep passes model options through `--extra_args` as a
+comma-separated list. Generate the dataset artifacts before launching paired
+runs and preserve them across optimization seeds. Use a separate data root
+when intentionally generating a fresh split or candidate set. The
+[model preset](../configs/README.md) lists the model and optimizer arguments
+used in the single-run example.
+
+## Evaluation designs in the manuscript
+
+- **Primary fixed-candidate benchmark:** Partition annotated positive pairs
+  into training, validation, and test sets (80:10:10). Use fixed and mutually
+  disjoint validation and test candidate sets, with one unannotated candidate
+  per positive for validation and ten for test. In the strict supervised
+  protocol, exclude the union of validation and test candidate pairs from
+  training-negative sampling. Reuse the same positive splits and candidate
+  sets across methods and optimization seeds (Methods and Supplementary Notes
+  1–2).
+- **Complete-candidate analyses:** Rank directed non-self TF–target pairs
+  after removing training and validation positives. The all-method comparison
+  and the matched-checkpoint comparisons use distinct training protocols;
+  record the checkpoint and candidate pool for each analysis. For the
+  shared-unexposed analysis, additionally exclude validation candidate
+  identities and the union of backgrounds sampled in training through the
+  selected checkpoints (Methods and Supplementary Notes 4, 6, and 10).
+- **Source-TF holdout:** Assign each source TF with annotated targets to a
+  training, validation, or test role. Use only training sources for outgoing
+  graph-prior edges, supervision, and sampled training negatives. Rank the
+  complete non-self candidate set for the held-out source role with shared
+  candidate identities and reference labels across methods. This evaluates
+  transfer to a held-out regulator role within the same retained gene set
+  (Methods and Supplementary Note 11).
+
+For matched architecture and graph controls, use the condition definitions in
+Supplementary Note 6. Pair comparisons on the same datasets and seeds, with
+the same evaluation candidates and checkpoint rule unless the comparison
+specifically varies that rule.
+
+## Reporting
+
+Identify the candidate pool, split, sampling rules, and checkpoint criterion
+with each result. Report pooled AP across pairs separately from macro per-TF
+AP and shortlist metrics. For the paper's primary benchmark, average the five
+optimization runs within each dataset, then report the equal-weight mean and
+sample standard deviation across datasets. Paired tests use dataset summaries;
+the five-study sensitivity analysis combines BM and UCB before testing.
