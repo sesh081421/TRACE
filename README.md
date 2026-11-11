@@ -30,14 +30,18 @@ comparison-method setup.
 
 ## Train TRACE
 
-[Prepare the expression matrices and TFLink prior](docs/DATA.md), then run
-the following example from the repository root. It trains one model on the
+Download and extract the [prepared BM example or full dataset](dataset/README.md)
+from the repository root. The archive contains a `dataset/` folder, which should
+be placed directly inside `TRACE/`. See the [data preparation guide](docs/DATA.md)
+for the expected input formats and paths.
+
+Run the following example from the repository root. It trains one model on the
 bone marrow dataset and reports validation metrics on a balanced candidate set.
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 python src/trace_tf_target/train.py \
   --data GSE150774_RAW/BM --benchmark false \
-  --data_root ./data --result_dir ./Result_trace_example \
+  --data_root ./dataset --result_dir ./Result_trace_example \
   --epochs 100 --batch_size 128 --patience 10 --seed 8 \
   --eval_neg_ratio 1 --attention_mode topology_only \
   --encoder_type gat --decoder bilinear --loss_type legacy_focal \
