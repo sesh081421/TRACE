@@ -1,21 +1,15 @@
 # TRACE
 
-TRACE (Transcription-factor-aware Regulatory Architecture for Candidate-Edge
-prioritization) prioritizes directed transcription factor (TF)–target
-interactions from single-cell gene profiles and a training-derived regulatory
-graph. A two-layer graph attention encoder aggregates neighborhoods derived from
-training TFLink interactions, and an ordered bilinear decoder scores candidate
-pairs. Scores support network-wide ranking and target shortlists for individual
-TFs.
+**Transcription-factor-aware Regulatory Architecture for Candidate-Edge prioritization**
 
-This repository accompanies *TRACE: graph-informed learning for network-wide
-regulatory interaction prioritization* by Sanghun Sel, Subin Lee, and Giltae Song.
+TRACE scores directed TF-target candidate pairs using gene features and a
+training-derived regulatory graph.
 
 ## Installation
 
-Use Python 3.10 with the dependencies in
-[`requirements.txt`](requirements.txt). This file pins PyTorch 2.2.1 and
-CUDA 12.1 builds of the PyTorch Geometric extension packages.
+Use Python 3.10 on Linux. The requirements pin PyTorch 2.2.1 and CUDA 12.1
+builds of the PyTorch Geometric extensions; a compatible NVIDIA driver is
+required for GPU execution.
 
 ```bash
 git clone https://github.com/sesh081421/TRACE.git
@@ -26,92 +20,99 @@ python -m pip install -r requirements.txt
 python -m pip install -e . --no-deps
 ```
 
-The editable install enables `trace-train`, `trace-sweep`, and
-`trace-summarize`. The `scripts/` and `examples/` entry points can also run
-directly from a checkout without that step, once dependencies are installed.
+The install provides `trace-train`, `trace-sweep`, and `trace-summarize`.
+The `scripts/` and `examples/` entry points also work directly from a checkout
+once dependencies are installed. For CPU-only execution, install matching CPU
+builds of PyTorch and the PyTorch Geometric extensions instead of CUDA builds.
 
-For CPU-only use, choose matching CPU builds of PyTorch and the PyTorch
-Geometric extension packages instead of the CUDA-specific packages in the
-requirements file. See the [baseline guide](docs/EXTERNAL_BASELINES.md) for
-comparison-method setup.
+## Data
 
-## Prepared Data
+Download one archive from the `dataset/` subfolder of the
+[data download folder](https://drive.google.com/drive/folders/1WmWXiD0VyNyD_Bd8IkFWRRWi5N1LAsDp?usp=drive_link):
 
-Download `TRACE_example_data_BM.zip` for BM, or `TRACE_preprocessed_data.zip`
-for all six datasets, from the `dataset/` subfolder of the shared
-[Google Drive folder](https://drive.google.com/drive/folders/1WmWXiD0VyNyD_Bd8IkFWRRWi5N1LAsDp?usp=drive_link).
-From the repository root, extract one archive, adjusting its download path:
+- `TRACE_example_data_BM.zip`: BM data for the quick example.
+- `TRACE_preprocessed_data.zip`: all six datasets.
+
+Extract the archive from the repository root, adjusting the download path:
 
 ```bash
-unzip ../TRACE_example_data_BM.zip -d .
+unzip ../TRACE_preprocessed_data.zip -d .
 ```
 
 The archive already contains `dataset/`. Do not extract it into `dataset/`
-again. The prior must be at `dataset/prior_network/tflink.h5`.
-See [dataset setup](dataset/README.md) for sizes, formats, and the full layout.
+again. The prior file should be at `dataset/prior_network/tflink.h5`.
 
-## Train TRACE
+| Datasets | Default feature input |
+| --- | --- |
+| BM, UCB, hESC, hHep | RNA |
+| PBMC, lymphoma | RNA+GAS |
 
-[Prepare the expression matrices and TFLink prior](docs/DATA.md), then run
-the following example from the repository root. It trains one model on the
-bone marrow dataset and reports validation metrics on a balanced candidate set.
+GAS denotes gene-activity scores. See [dataset setup](dataset/README.md) for
+file paths and [data formats](docs/DATA.md) for identifier and matrix requirements.
 
-```bash
-CUDA_VISIBLE_DEVICES=0 python src/trace_tf_target/train.py \
-  --data GSE150774_RAW/BM --benchmark false \
-  --data_root ./dataset --result_dir ./Result_trace_example \
-  --epochs 100 --batch_size 128 --patience 10 --seed 8 \
-  --eval_neg_ratio 1 --attention_mode topology_only \
-  --encoder_type gat --decoder bilinear --loss_type legacy_focal \
-  --selection_metric AUPRC --train_neg_sampling global --neg_ratio 1 \
-  --exclude_eval_candidates_from_train_negatives \
-  --lr 0.00013315 --weight_decay 0.0 --dropout 0.1 \
-  --output_dim 64 --topk 50 --topo_thr 0.15 --validation_only
-```
+## Quick Check
 
-The run writes its best validation metrics to
-`Result_trace_example/BM/seed_8/`. To save a model checkpoint, run without
-`--validation_only`. The CLI name `AUPRC` refers to pooled, non-interpolated
-average precision (AP). Run `python src/trace_tf_target/train.py --help` for
-command options.
-
-To summarize the validation-only output without treating it as test performance:
-
-```bash
-python scripts/summarize.py --result_dir ./Result_trace_example --metric_split validation
-```
-
-For a three-epoch execution check that also saves a checkpoint and test metrics:
+Run from the repository root:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0 bash examples/run_quick_check.sh
 python scripts/summarize.py --result_dir ./results_quick
 ```
 
-The quick example uses validation 1:1 and test 1:10; it is an execution check,
-not a reproduction of final paper performance. Set `PYTHON_BIN` to select a
-different Python interpreter. Use separate result directories for different
-protocols or hyperparameters.
+This runs three epochs on BM and writes a checkpoint and metrics. It is an
+execution check, not a full training run. Set `PYTHON_BIN` to use a different
+Python interpreter.
 
-## Evaluation
+## Train
 
-The [evaluation guide](docs/REPRODUCIBILITY.md) describes how to reuse dataset
-artifacts across runs and distinguishes the example above from the paper's
-fixed-candidate benchmark, complete-candidate evaluation, and source-TF holdout.
-See the [model preset](configs/README.md) for model and optimizer settings.
-These protocol descriptions do not imply that all manuscript analyses can be
-regenerated from this model-only release; baseline and source-TF-holdout runners
-are not bundled here.
+For a PBMC run, prepare the full data archive and run:
 
-| Path | Contents |
-| --- | --- |
-| [`src/trace_tf_target/`](src/trace_tf_target/) | Model, training, evaluation, and control code |
-| [`configs/`](configs/) | TRACE model preset |
-| [`docs/`](docs/) | Data preparation, evaluation protocols, and baseline setup |
-| [`scripts/`](scripts/) | Single-run, multi-dataset, and result-summary entry points |
-| [`tests/`](tests/) | Entry-point checks |
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/run_trace.py \
+  --data pbmc_granulocytes --data_root ./dataset \
+  --result_dir ./results_pbmc_rna_gas \
+  --epochs 100 --batch_size 128 --patience 10 --seed 8
+```
+
+Other dataset IDs are `GSE150774_RAW/BM`, `GSE150774_RAW/UCB`, `lymph`,
+`hESC`, and `hHep`. The wrapper selects the corresponding input format.
+Training uses one sampled background pair per positive by default; validation
+uses a 1:1 ratio and test evaluation uses 1:10. Choose a GPU with
+`CUDA_VISIBLE_DEVICES` and a separate output directory for each configuration.
+
+To run all datasets with five seeds:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python scripts/run_sweep.py \
+  --datasets all --seeds 8,18,28,38,48 \
+  --data_root ./dataset --result_dir ./results_all --skip_existing
+python scripts/summarize.py --result_dir ./results_all
+```
+
+## Outputs And Options
+
+Runs save model checkpoints and metrics JSON under
+`<result_dir>/<dataset>/seed_<seed>/`. The summarizer writes
+`seed_sweep_raw.csv` and `seed_sweep_summary.csv`.
+
+```bash
+python scripts/run_trace.py --help
+python scripts/run_sweep.py --help
+python src/trace_tf_target/train.py --help
+```
+
+See [training options](docs/REPRODUCIBILITY.md), the
+[model preset](configs/README.md), and [input and graph options](docs/INPUT_AND_GRAPH_CONTROLS.md).
+This repository contains the TRACE model and its training tools; external
+comparison-method runners and manuscript analysis pipelines are not included.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## License
 
-TRACE is released under the [MIT License](LICENSE). Refer to the original
-licenses for datasets and third-party methods.
+Code is released under the [MIT License](LICENSE). Datasets and regulatory
+resources retain their original terms.

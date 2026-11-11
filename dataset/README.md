@@ -58,8 +58,10 @@ dataset/scRNA_ATAC/BEELINE/inputs/scRNA-Seq/hHep/ExpressionData.csv
 
 AnnData inputs must contain genes in `var_names`. Non-BEELINE inputs use a
 `var['highly_variable']` mask. MuData inputs must contain an `rna`
-modality. PBMC and lymphoma additionally use the adjacent gene-activity-score
-HDF5 file.
+modality. PBMC and lymphoma additionally require the adjacent gene-activity-score
+HDF5 file. BM, UCB, hESC, and hHep use RNA features.
+See [input and graph-control notes](../docs/INPUT_AND_GRAPH_CONTROLS.md) for the
+feature definitions and alignment rules.
 
 ## Preserved Or Generated Files
 

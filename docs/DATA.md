@@ -16,8 +16,12 @@ root, not inside `dataset/`, since it already contains that directory.
 | Mature hepatocytes (hHep) | `hHep` | [BEELINE](https://doi.org/10.1038/s41592-019-0690-6) |
 
 Use [TFLink](https://doi.org/10.1093/database/baac083) for the human regulatory
-prior. See the manuscript's Methods and Supplementary Note 1 for preprocessing,
-identifier harmonization, and the reference TF set.
+prior. Match regulator and target identifiers to the expression gene names.
+
+| Datasets | Default feature input |
+| --- | --- |
+| BM, UCB, hESC, hHep | RNA |
+| PBMC, lymphoma | RNA+GAS |
 
 ```text
 dataset/
@@ -40,10 +44,12 @@ dataset/
 - **BM and UCB:** Prepare AnnData files with cells in rows, genes in columns, and
   a Boolean `var["highly_variable"]` mask. The loader uses the selected values
   in `X`.
-- **PBMC and lymphoma:** Use a MuData file with an `rna` modality and an adjacent
-  gene-by-cell activity HDF5 file. Use matching gene names and cell barcodes.
-  The loader aligns gene activity to RNA, fills unmatched entries with zero,
-  and adds the matrices before gene-wise standardization.
+- **PBMC and lymphoma:** Use the MuData `rna` modality and the adjacent gene-by-cell GAS
+  HDF5 file. The loader replaces literal dots in GAS barcodes with hyphens,
+  aligns GAS to RNA, fills unmatched entries with zero, and adds the matrices
+  before gene-wise standardization. Partial alignment produces a warning;
+  zero shared cells or genes raises an error. Training does not rewrite the
+  input GAS file.
 - **hESC and hHep:** Use the BEELINE gene-by-cell expression CSVs. Benchmark mode
   transposes them for normalization, log transformation, and variable-gene
   selection.
@@ -52,3 +58,7 @@ On first use, the training tools write TF and gene indices, positive splits,
 and sampled evaluation candidates under `dataset/tfs/` and `dataset/prior_network/`.
 Keep the indexed files with the run and reuse the same data root for paired
 comparisons. Use separate roots for independent split-generation jobs.
+
+These feature descriptions do not remove the TFLink training prior. TRACE uses
+training-positive TFLink relationships for supervision and topology construction
+on all datasets. See [the input audit](INPUT_AND_GRAPH_CONTROLS.md) for details.

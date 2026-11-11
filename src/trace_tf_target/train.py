@@ -2,6 +2,7 @@ import argparse
 import copy
 import json
 import sys
+import warnings
 from pathlib import Path
 
 if __package__ in {None, ''}:
@@ -19,6 +20,7 @@ from torch_sparse import SparseTensor
 from trace_tf_target.early_stopping import EarlyStopping
 from trace_tf_target.model import TRACE
 from trace_tf_target.topology_controls import bipartite_degree_preserving_rewire
+from trace_tf_target.graph_null import load_or_create_training_null
 from trace_tf_target.utils import (
     SHORT_NAMES,
     add_bidirectional_edges,
@@ -138,7 +140,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TRACE TF->Target training script.")
     parser.add_argument("--data", required=True, help="Dataset name.")
     parser.add_argument("--benchmark", type=str2bool, default=None, help="Override benchmark mode.")
-    parser.add_argument("--data_root", default="./data/", help="Data root directory.")
+    parser.add_argument("--data_root", default="./dataset", help="Data root directory.")
     parser.add_argument(
         "--split_manifest_root",
         default=None,
@@ -251,12 +253,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--topology_graph_variant",
-        choices=["derived", "direct", "rewired", "bipartite_rewired"],
+        choices=["derived", "direct", "rewired", "bipartite_rewired", "train_only_rewired"],
         default="derived",
         help=(
             "Topology-attention graph: derived 2-hop/Jaccard, direct train edges, "
-            "a source-degree-rewired derived graph, or a train graph rewired while "
-            "preserving both TF outdegree and target indegree before topology derivation."
+            "a source-degree-rewired derived graph, held-out-excluding "
+            "bipartite_rewired, or the label-blind train_only_rewired null."
         ),
     )
     parser.add_argument(
@@ -278,13 +280,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--topology_rewire_swaps_per_edge",
         type=float,
         default=10.0,
-        help="Accepted double-edge swaps per train edge for bipartite_rewired.",
+        help="Accepted double-edge swaps per train edge for bipartite rewiring.",
     )
     parser.add_argument(
         "--topology_rewire_max_attempt_factor",
         type=int,
         default=50,
-        help="Maximum attempted swaps per requested swap for bipartite_rewired.",
+        help="Maximum attempted swaps per requested swap for bipartite rewiring.",
+    )
+    parser.add_argument(
+        "--topology_null_cache", default=None,
+        help="Shared graph CSV for train_only_rewired; reuse one graph seed/cache across optimization seeds.",
     )
     parser.add_argument(
         "--disable_jaccard_bias",
@@ -352,13 +358,15 @@ def main() -> None:
     if args.topology_graph_variant != "derived" and args.attention_mode not in {"dual", "topology_only"}:
         parser.error("Non-derived topology variants require a topology attention branch.")
     if (
-        args.topology_graph_variant == "bipartite_rewired"
+        args.topology_graph_variant in {"bipartite_rewired", "train_only_rewired"}
         and args.prior_robustness_mode != "none"
     ):
         parser.error(
-            "--topology_graph_variant bipartite_rewired requires "
+            "Bipartite rewiring requires "
             "--prior_robustness_mode none."
         )
+    if args.topology_null_cache is not None and args.topology_graph_variant != "train_only_rewired":
+        parser.error("--topology_null_cache requires --topology_graph_variant train_only_rewired.")
 
     if args.topology_positive_scope == "all_splits":
         if args.prior_robustness_mode != "none":
@@ -493,6 +501,11 @@ def main() -> None:
 
     bipartite_rewire_audit = None
     if args.topology_graph_variant == "bipartite_rewired":
+        warnings.warn(
+            "bipartite_rewired excludes held-out positives. "
+            "Use train_only_rewired for a graph null constructed from training edges only.",
+            RuntimeWarning,
+        )
         topology_df, bipartite_rewire_audit = bipartite_degree_preserving_rewire(
             train_df=train_df,
             val_df=val_df,
@@ -500,6 +513,15 @@ def main() -> None:
             seed=args.topology_rewire_seed,
             swaps_per_edge=args.topology_rewire_swaps_per_edge,
             max_attempt_factor=args.topology_rewire_max_attempt_factor,
+        )
+    elif args.topology_graph_variant == "train_only_rewired":
+        topology_df, bipartite_rewire_audit = load_or_create_training_null(
+            train_df, args.topology_rewire_seed, args.topology_rewire_swaps_per_edge,
+            args.topology_rewire_max_attempt_factor, args.topology_null_cache,
+        )
+        # Diagnostic only: held-out labels do not accept, reject, or regenerate the graph.
+        bipartite_rewire_audit["posthoc_heldout_positive_overlap"] = len(
+            positive_edge_set(topology_df) & (positive_edge_set(val_df) | positive_edge_set(test_df))
         )
     print(
         "[Prior Robustness] "
@@ -518,6 +540,13 @@ def main() -> None:
         pca_components=args.pca_components,
         pca_seed=args.pca_seed,
     )
+    feature_audit["input_modalities"] = (
+        ["RNA", "GAS"]
+        if args.data in {"pbmc_granulocytes", "lymph"}
+        and not args.benchmark and args.feature_mode != "rna_only"
+        else ["RNA"]
+    )
+    feature_audit["input_policy"] = "pbmc_lymphoma_rna_gas_v2"
     print(
         "[Features] "
         f"mode={feature_audit['mode']} "

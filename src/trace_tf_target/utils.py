@@ -1,6 +1,7 @@
 import argparse
 import os
 import random
+import warnings
 from pathlib import Path
 
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
@@ -101,7 +102,7 @@ def load_gas(data_root: str, data: str, filename: str = "GAS_gene_cell_score.h5"
     path = os.path.join(data_root, "scRNA_ATAC", data, filename)
     try:
         gas = pd.read_hdf(path)
-        gas.columns = gas.columns.str.replace(r"\\.", "-", regex=True)
+        gas.columns = gas.columns.str.replace(".", "-", regex=False)
         return gas
     except (ValueError, OSError, KeyError, ImportError):
         pass
@@ -123,7 +124,7 @@ def load_gas(data_root: str, data: str, filename: str = "GAS_gene_cell_score.h5"
         gas_df = pd.DataFrame(array, index=genes, columns=cells)
     else:
         gas_df = pd.DataFrame(array, index=cells, columns=genes).T
-    gas_df.columns = gas_df.columns.str.replace(r"\\.", "-", regex=True)
+    gas_df.columns = gas_df.columns.str.replace(".", "-", regex=False)
 
     if save_fixed:
         try:
@@ -134,6 +135,18 @@ def load_gas(data_root: str, data: str, filename: str = "GAS_gene_cell_score.h5"
 
 
 def integrate_rna_gas(x: pd.DataFrame, gas: pd.DataFrame) -> pd.DataFrame:
+    if not all(axis.is_unique for axis in (x.index, x.columns, gas.index, gas.columns)):
+        raise ValueError("RNA and GAS gene/cell identifiers must be unique after barcode normalization.")
+    matched_cells = len(x.columns.intersection(gas.columns))
+    matched_genes = len(x.index.intersection(gas.index))
+    if not matched_cells or not matched_genes:
+        raise ValueError("RNA/GAS alignment has no shared cells or genes; check identifiers before integration.")
+    if matched_cells < x.shape[1] or matched_genes < x.shape[0]:
+        warnings.warn(
+            f"RNA/GAS alignment: {matched_cells}/{x.shape[1]} cells and "
+            f"{matched_genes}/{x.shape[0]} genes matched; unmatched GAS entries are zero-filled.",
+            RuntimeWarning, stacklevel=2,
+        )
     gas_aligned = gas.reindex(index=x.index, columns=x.columns, fill_value=0)
     return x + gas_aligned
 
@@ -151,7 +164,7 @@ def get_exp_data(data_root: str, data: str, filename: str) -> pd.DataFrame:
     rna = get_sc_data(data_root, data, filename)
     x = get_filtered_x(rna)
     if filename.endswith("h5mu"):
-        gas = load_gas(data_root, data)
+        gas = load_gas(data_root, data, save_fixed=False)
         x = integrate_rna_gas(x, gas)
     return x
 

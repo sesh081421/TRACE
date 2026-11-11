@@ -45,7 +45,32 @@ def bipartite_degree_preserving_rewire(
     swaps_per_edge: float = 10.0,
     max_attempt_factor: int = 50,
 ) -> tuple[pd.DataFrame, dict[str, object]]:
-    """Randomize train TF-target pairs while preserving both degree sequences."""
+    """Degree-preserving control that excludes held-out positive pairs."""
+    graph, audit = _bipartite_rewire(
+        train_df, _edge_set(val_df) | _edge_set(test_df), seed,
+        swaps_per_edge, max_attempt_factor,
+    )
+    audit.update(heldout_labels_consulted=True,
+                 null_definition="held-out-positive-excluding bipartite rewire")
+    return graph, audit
+
+
+def training_only_degree_preserving_rewire(
+    train_df: pd.DataFrame,
+    seed: int,
+    swaps_per_edge: float = 10.0,
+    max_attempt_factor: int = 50,
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    """Label-blind graph null: this API cannot access held-out labels."""
+    graph, audit = _bipartite_rewire(train_df, set(), seed, swaps_per_edge, max_attempt_factor)
+    audit.pop("held_out_positive_overlap")
+    audit.update(heldout_labels_consulted=False,
+                 null_definition="training-only bipartite degree-preserving graph",
+                 self_rule="no new self pairs; original self pairs may remain or be removed")
+    return graph, audit
+
+
+def _bipartite_rewire(train_df, held_out_positive, seed, swaps_per_edge, max_attempt_factor):
     if swaps_per_edge <= 0:
         raise ValueError("swaps_per_edge must be positive")
     if max_attempt_factor < 1:
@@ -71,7 +96,6 @@ def bipartite_degree_preserving_rewire(
     }
     edges = original_edges.copy()
     edge_set = set(edges)
-    held_out_positive = _edge_set(val_df) | _edge_set(test_df)
 
     rng = np.random.default_rng(int(seed))
     edge_count = len(edges)
