@@ -8,7 +8,10 @@ dataset artifacts together. In the direct training CLI, `--eval_neg_ratio` sets 
 background-to-positive ratio and also the validation ratio unless
 `--validation_neg_ratio` is set separately. The `--neg_ratio` argument
 controls dynamic training sampling. The training example builds neighborhoods from training positives
-and excludes annotated positives when sampling training backgrounds.
+and excludes annotated positives when sampling training backgrounds. The direct
+CLI also needs `--exclude_eval_candidates_from_train_negatives` for strict
+candidate exclusion, as in the README command; the released wrapper and sweep
+enable this rule automatically.
 `--selection_metric AUPRC` selects the checkpoint by pooled validation AP.
 
 Run `python scripts/run_sweep.py --help` from the repository root to configure
@@ -21,7 +24,23 @@ candidate set. The [model preset](../configs/README.md) lists the model and
 optimizer arguments used in the single-run example. For the full set of
 training options, use `python src/trace_tf_target/train.py --help`.
 
+`--validation_only` writes `test_metrics: null` and no checkpoint. Summarize
+those runs with `python scripts/summarize.py --result_dir <path>
+--metric_split validation`; this creates `seed_sweep_validation_raw.csv` and
+`seed_sweep_validation_summary.csv`. The default summarizer selects test metrics
+only and skips validation-only records. Validation and test outputs are never
+pooled into one summary.
+
+`--skip_existing` skips a run only when its metrics file contains nonempty test
+metrics. It does not compare all saved hyperparameters or verify checkpoint
+contents; use a new result directory when changing settings. A validation-only
+file is not a completed test run and will be replaced by a full run unless you
+choose a separate result directory.
+
 ## Evaluation designs in the manuscript
+
+The descriptions below document the study designs. This model-only release
+does not include every analysis runner or comparator implementation.
 
 - **Primary fixed-candidate benchmark:** Partition annotated positive pairs
   into training, validation, and test sets (80:10:10). Use fixed and mutually

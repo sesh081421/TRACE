@@ -1,6 +1,7 @@
 """Multi-dataset runner for the released TRACE model."""
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -31,6 +32,18 @@ def parse_csv(value: str) -> list[str]:
 
 def parse_int_csv(value: str) -> list[int]:
     return [int(item) for item in parse_csv(value)]
+
+
+def has_test_results(path: Path) -> bool:
+    """A validation-only or interrupted run must not skip a full sweep run."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    if not isinstance(payload, dict):
+        return False
+    metrics = payload.get("test_metrics")
+    return isinstance(metrics, dict) and bool(metrics)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -82,7 +95,7 @@ def main() -> None:
                 / f"seed_{seed}"
                 / f"TRACE_{short_name}_seed_{seed}_metrics.json"
             )
-            if args.skip_existing and metrics_path.exists():
+            if args.skip_existing and has_test_results(metrics_path):
                 print(f"Skipping existing dataset={dataset} seed={seed}")
                 continue
 

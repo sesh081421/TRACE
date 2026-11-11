@@ -1,6 +1,7 @@
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +24,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--result_dir", default="./results", help="Base result directory.")
     parser.add_argument("--raw_csv", default=None, help="Optional output path for raw run table.")
     parser.add_argument("--summary_csv", default=None, help="Optional output path for aggregated summary table.")
+    parser.add_argument(
+        "--metric_split", choices=["test", "validation"], default="test",
+        help="Summarize test metrics (default) or best validation metrics; never mix the two.",
+    )
     return parser
 
 
@@ -39,10 +44,17 @@ def main() -> None:
     for metric_file in metric_files:
         payload = json.loads(metric_file.read_text(encoding="utf-8"))
         config = payload["config"]
-        metrics = payload["test_metrics"]
+        metric_key = "test_metrics" if args.metric_split == "test" else "best_validation_metrics"
+        metrics = payload.get(metric_key)
+        if metrics is None:
+            print(f"Skipping {metric_file}: no {args.metric_split} metrics.", file=sys.stderr)
+            continue
+        if not isinstance(metrics, dict) or not metrics:
+            raise SystemExit(f"Invalid {metric_key} in {metric_file}")
         row = {
             "dataset": config["data"],
             "seed": config["seed"],
+            "metric_split": args.metric_split,
             "metrics_file": str(metric_file),
             "best_threshold": payload["best_threshold"],
         }
@@ -50,10 +62,14 @@ def main() -> None:
             row[metric] = metrics.get(metric)
         rows.append(row)
 
+    if not rows:
+        hint = " Use --metric_split validation for validation-only runs." if args.metric_split == "test" else ""
+        raise SystemExit(f"No {args.metric_split} metrics found under {result_dir}.{hint}")
+
     raw_df = pd.DataFrame(rows).sort_values(["dataset", "seed"]).reset_index(drop=True)
     summary_rows = []
     for dataset, group in raw_df.groupby("dataset", sort=True):
-        row = {"dataset": dataset, "n_runs": int(len(group))}
+        row = {"dataset": dataset, "metric_split": args.metric_split, "n_runs": int(len(group))}
         for metric in METRICS:
             values = pd.to_numeric(group[metric], errors="coerce").dropna()
             if values.empty:
@@ -70,8 +86,9 @@ def main() -> None:
 
     summary_df = pd.DataFrame(summary_rows).sort_values("dataset").reset_index(drop=True)
 
-    raw_csv = Path(args.raw_csv) if args.raw_csv else result_dir / "seed_sweep_raw.csv"
-    summary_csv = Path(args.summary_csv) if args.summary_csv else result_dir / "seed_sweep_summary.csv"
+    prefix = "seed_sweep" if args.metric_split == "test" else "seed_sweep_validation"
+    raw_csv = Path(args.raw_csv) if args.raw_csv else result_dir / f"{prefix}_raw.csv"
+    summary_csv = Path(args.summary_csv) if args.summary_csv else result_dir / f"{prefix}_summary.csv"
     raw_csv.parent.mkdir(parents=True, exist_ok=True)
     summary_csv.parent.mkdir(parents=True, exist_ok=True)
     raw_df.to_csv(raw_csv, index=False)

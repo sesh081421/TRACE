@@ -18,24 +18,42 @@ Use Python 3.10 with the dependencies in
 CUDA 12.1 builds of the PyTorch Geometric extension packages.
 
 ```bash
+git clone https://github.com/sesh081421/TRACE.git
+cd TRACE
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
+python -m pip install -e . --no-deps
 ```
+
+The editable install enables `trace-train`, `trace-sweep`, and
+`trace-summarize`. The `scripts/` and `examples/` entry points can also run
+directly from a checkout without that step, once dependencies are installed.
 
 For CPU-only use, choose matching CPU builds of PyTorch and the PyTorch
 Geometric extension packages instead of the CUDA-specific packages in the
 requirements file. See the [baseline guide](docs/EXTERNAL_BASELINES.md) for
 comparison-method setup.
 
+## Prepared Data
+
+Download `TRACE_example_data_BM.zip` for BM, or `TRACE_preprocessed_data.zip`
+for all six datasets, from the `dataset/` subfolder of the shared
+[Google Drive folder](https://drive.google.com/drive/folders/1WmWXiD0VyNyD_Bd8IkFWRRWi5N1LAsDp?usp=drive_link).
+From the repository root, extract one archive, adjusting its download path:
+
+```bash
+unzip ../TRACE_example_data_BM.zip -d .
+```
+
+The archive already contains `dataset/`. Do not extract it into `dataset/`
+again. The prior must be at `dataset/prior_network/tflink.h5`.
+See [dataset setup](dataset/README.md) for sizes, formats, and the full layout.
+
 ## Train TRACE
 
-Download and extract the [prepared BM example or full dataset](dataset/README.md)
-from the repository root. The archive contains a `dataset/` folder, which should
-be placed directly inside `TRACE/`. See the [data preparation guide](docs/DATA.md)
-for the expected input formats and paths.
-
-Run the following example from the repository root. It trains one model on the
+[Prepare the expression matrices and TFLink prior](docs/DATA.md), then run
+the following example from the repository root. It trains one model on the
 bone marrow dataset and reports validation metrics on a balanced candidate set.
 
 ```bash
@@ -46,6 +64,7 @@ CUDA_VISIBLE_DEVICES=0 python src/trace_tf_target/train.py \
   --eval_neg_ratio 1 --attention_mode topology_only \
   --encoder_type gat --decoder bilinear --loss_type legacy_focal \
   --selection_metric AUPRC --train_neg_sampling global --neg_ratio 1 \
+  --exclude_eval_candidates_from_train_negatives \
   --lr 0.00013315 --weight_decay 0.0 --dropout 0.1 \
   --output_dim 64 --topk 50 --topo_thr 0.15 --validation_only
 ```
@@ -56,12 +75,33 @@ The run writes its best validation metrics to
 average precision (AP). Run `python src/trace_tf_target/train.py --help` for
 command options.
 
+To summarize the validation-only output without treating it as test performance:
+
+```bash
+python scripts/summarize.py --result_dir ./Result_trace_example --metric_split validation
+```
+
+For a three-epoch execution check that also saves a checkpoint and test metrics:
+
+```bash
+CUDA_VISIBLE_DEVICES=0 bash examples/run_quick_check.sh
+python scripts/summarize.py --result_dir ./results_quick
+```
+
+The quick example uses validation 1:1 and test 1:10; it is an execution check,
+not a reproduction of final paper performance. Set `PYTHON_BIN` to select a
+different Python interpreter. Use separate result directories for different
+protocols or hyperparameters.
+
 ## Evaluation
 
 The [evaluation guide](docs/REPRODUCIBILITY.md) describes how to reuse dataset
 artifacts across runs and distinguishes the example above from the paper's
 fixed-candidate benchmark, complete-candidate evaluation, and source-TF holdout.
 See the [model preset](configs/README.md) for model and optimizer settings.
+These protocol descriptions do not imply that all manuscript analyses can be
+regenerated from this model-only release; baseline and source-TF-holdout runners
+are not bundled here.
 
 | Path | Contents |
 | --- | --- |

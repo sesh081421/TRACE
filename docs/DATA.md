@@ -1,13 +1,10 @@
 # Data preparation
 
-The [prepared-data download guide](../dataset/README.md) describes the BM
-example and full-data archives. Each archive contains a `dataset/` folder.
-Extract it directly inside the repository and run the examples from the
-repository root with `--data_root ./dataset`. The expected prior path is
-`dataset/prior_network/tflink.h5`.
-
-For manually prepared inputs, use the same layout below or set `--data_root`
-to the directory containing both `scRNA_ATAC/` and `prior_network/`.
+Set `--data_root` to the directory containing prepared expression inputs and
+the TFLink prior. The examples and prepared archives use `./dataset`.
+For downloadable ZIP archives and extraction commands, see
+[Dataset Setup](../dataset/README.md). Extract an archive at the repository
+root, not inside `dataset/`, since it already contains that directory.
 
 | Dataset | Command-line dataset ID | Source |
 | --- | --- | --- |
@@ -51,9 +48,7 @@ dataset/
   transposes them for normalization, log transformation, and variable-gene
   selection.
 
-The prepared archives include indexed TF and gene tables, positive splits,
-and frozen evaluation candidates under `dataset/tfs/` and
-`dataset/prior_network/`. Keep these supplied files so repeated runs reuse the
-same splits and candidate identities. If the files are absent, the training
-tools generate them at these locations. Use separate roots for independent
-split-generation jobs.
+On first use, the training tools write TF and gene indices, positive splits,
+and sampled evaluation candidates under `dataset/tfs/` and `dataset/prior_network/`.
+Keep the indexed files with the run and reuse the same data root for paired
+comparisons. Use separate roots for independent split-generation jobs.
