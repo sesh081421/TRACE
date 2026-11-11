@@ -1,22 +1,20 @@
 # Baseline setup
 
-Use the wrapper for the method you want to run and inspect its command-line
-options with `--help` after installing its dependencies.
+Set up each comparison method using the implementation cited in the manuscript
+and its installation instructions. Keep method-specific dependencies in a
+separate environment when they conflict with the TRACE environment.
 
-| Method | Entry point | Setup |
-| --- | --- | --- |
-| GENELink | `trace_tf_target/run_genelink_baseline.py` | Point `--external_dir` to the GENELink checkout. |
-| GRLGRN | `trace_tf_target/run_grlgrn_baseline.py` | Point `--external_dir` to the GRLGRN checkout. |
-| GENIE3 | `trace_tf_target/run_genie3_baseline.py` | Install Arboreto. |
-| GRNBoost2 and PANDA | `trace_tf_target/run_classic_baseline.py` | Install Arboreto and NetZooPy; select the method with `--model`. |
-| Random ranking | `trace_tf_target/run_random_baseline.py` | Use the TRACE environment. |
-
-The optional [baseline dependencies](../requirements-baselines.txt) also
-support the additional wrappers. For methods that load an upstream checkout,
-use the method's own installation instructions and pass its local path to the
-wrapper.
+| Method | Setup |
+| --- | --- |
+| GENELink | Use the cited GENELink implementation and its required environment. |
+| GRLGRN | Use the cited GRLGRN implementation and its required environment. |
+| GENIE3 | Install Arboreto for its random-forest implementation. |
+| GRNBoost2 | Install Arboreto for its gradient-boosting implementation. |
+| PANDA | Install netZooPy and prepare the expression, regulatory-prior, and protein-interaction inputs. |
+| Random ranking | Assign seeded scores to the same candidate pairs used for the model comparison. |
 
 For method comparisons, use shared positive splits, candidate identities,
 reference labels, and metric definitions. Record any method-specific adapter,
 environment, or checkpoint-selection rule with the run. Report sampled and
-complete-candidate evaluations separately.
+complete-candidate evaluations separately. The manuscript and Supplementary
+Information specify the settings used in the reported comparisons.

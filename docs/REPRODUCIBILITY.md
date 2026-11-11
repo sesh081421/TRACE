@@ -4,20 +4,22 @@
 
 Start with the [single-run validation example](../README.md#train-trace).
 For a full training run, retain the metrics JSON, checkpoint, and generated
-dataset artifacts together. In this CLI, `--eval_neg_ratio` sets the
-background-to-positive ratio for both sampled
-validation and test candidates; `--neg_ratio` controls dynamic training
-sampling. The training example builds neighborhoods from training positives
+dataset artifacts together. In the direct training CLI, `--eval_neg_ratio` sets the test
+background-to-positive ratio and also the validation ratio unless
+`--validation_neg_ratio` is set separately. The `--neg_ratio` argument
+controls dynamic training sampling. The training example builds neighborhoods from training positives
 and excludes annotated positives when sampling training backgrounds.
 `--selection_metric AUPRC` selects the checkpoint by pooled validation AP.
 
-Use `trace_tf_target/run_seed_sweep.py --help` to configure dataset and seed
-lists. The sweep passes model options through `--extra_args` as a
-comma-separated list. Generate the dataset artifacts before launching paired
-runs and preserve them across optimization seeds. Use a separate data root
-when intentionally generating a fresh split or candidate set. The
-[model preset](../configs/README.md) lists the model and optimizer arguments
-used in the single-run example.
+Run `python scripts/run_sweep.py --help` from the repository root to configure
+dataset and seed lists. The sweep uses the released TRACE preset, with separate
+validation and test background ratios, and excludes fixed evaluation
+candidates from training-negative sampling. Generate the dataset artifacts
+before launching paired runs and preserve them across optimization seeds.
+Use a separate data root when intentionally generating a fresh split or
+candidate set. The [model preset](../configs/README.md) lists the model and
+optimizer arguments used in the single-run example. For the full set of
+training options, use `python src/trace_tf_target/train.py --help`.
 
 ## Evaluation designs in the manuscript
 
